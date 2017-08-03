@@ -30,7 +30,7 @@ XPCOMUtils.defineLazyGetter(this, "Timer", function() {
 
 if (!arguments || arguments.length < 1) {
 
-  throw "Usage: xpcshell sslScan.js <-u=uri>\n";
+  throw "Usage: xpcshell sslScan.js <-u=uri> <-s=num_scans> <-p=pref>\n";
 }
 
 /*
@@ -99,17 +99,11 @@ try
   infoMessage (e.message + "\n\n")
 }
 
-// custom prefs can go here
-// Services.prefs.setIntPref("security.pki.netscape_step_up_policy", 3)
-
-
-
-
 function RedirectStopper() {}
 RedirectStopper.prototype = {
-  // nsIChannelEventSink
-  asyncOnChannelRedirect: function(oldChannel, newChannel, flags, callback) {
-    throw Cr.NS_ERROR_ENTITY_CHANGED;
+  asyncOnChannelRedirect: function (oldChannel, newChannel, flags, callback) {
+      // This callback prevents redirects, and the request's error handler will be called.
+      callback.onRedirectVerifyCallback(Cr.NS_ERROR_ABORT);
   },
   getInterface: function(iid) {
     return this.QueryInterface(iid);
@@ -121,15 +115,12 @@ RedirectStopper.prototype = {
 function queryURI(uri) {
   try {
     start_time = new Date();
-
     let req = Cc["@mozilla.org/xmlextras/xmlhttprequest;1"].createInstance(Ci.nsIXMLHttpRequest);
-
     req.open("HEAD", uri, true);
-    //req.channel.notificationCallbacks = new RedirectStopper();
+    req.channel.notificationCallbacks = new RedirectStopper();
     req.addEventListener("error", recordResult, false);
     req.addEventListener("load", recordResult, false);
     req.send();
-
   } catch (e) {
     infoMessage("Runtime error for XHR: " + e.message)
   }
@@ -143,7 +134,6 @@ function recordResult(e) {
     loadURI(host_array[counter]);
   } else {
     completed = true;
-    //print_test_results();
     print_connection_speed();
   }
 }
@@ -231,7 +221,6 @@ function print_connection_speed()
 
 try {
   build_host_list();
-  //dump ("Scanning host: " + host + "\n");
   loadURI(host_array[0])
 } catch (e) {
   failRun(e.message);
